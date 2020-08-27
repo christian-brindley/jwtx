@@ -35,7 +35,7 @@ cat  <<EOF
 Usage: jwtx -p|--properties filename (file with options)
             -w|--well-known uri  (OIDC wellknown URI)
             -j|--jwks-uri uri    (jwks_uri if --well-known not specified)
-            -s|--sigverif        (perform signature verification - requires --well-known or --jwk options)
+            -s|--sigverify       (perform signature verification - requires --well-known or --jwk options)
             -d|--debug           (debug output)
             -f|--file filename   (file containing JWT - if not supplied, JWT taken from stdin)
             -v|--version         (print jwtx version)
@@ -57,7 +57,14 @@ function debug () {
     fi
 }
 
+function debugstart () {
+    msg=$(cut -c1-80 <<< ">>>>> $1 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+    debug "$msg"
+}
 
+function debugend () {
+    debug "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+}
 
 # checkoptions
 #
@@ -67,7 +74,27 @@ function debug () {
 function checkoptions () {
     error=0
 
+    # Check we have either well-known uri or jwks uri if signature verification required
     [ -n "$VERIFY" ] && [ -z "$WELL_KNOWN_URI" ] && [ -z "$JWKS_URI" ] && echo "--verify option requires either --well-known or --jwk option" && error=1
+
+    # Check we don't have both well-known uri and jwks-uri
+    [ -n "$WELL_KNOWN_URI" ] && [ -n $JWKS_URI ] && echo "Specify either --well-known or --jwks-uri option" && error=1
+
+    [ $error == 0 ]
+}
+
+# checkprereqs
+# 
+# Check dependencies
+#
+
+function checkprereqs {
+    error=0
+
+    for command in awk sed jq openssl
+    do
+        ! type $command >/dev/null 2>&1 && echo "$command not found" && error=1 
+    done
 
     [ $error == 0 ]
 }
@@ -124,7 +151,7 @@ case $key in
         shift # past value
         ;;
     -j|--jwks-uri)
-        JWK="$2"
+        JWKS_URI="$2"
         shift # past argument
         shift # past value
         ;;
@@ -161,6 +188,14 @@ fi
 
 if ! checkoptions
 then
+    exit 1
+fi
+
+# Check dependencies
+
+if ! checkprereqs
+then
+    echo "Missing dependencies"
     exit 1
 fi
 
@@ -233,9 +268,9 @@ debug
 
 jwk=$(curl -s $JWKS_URI)
 
-debug "================ JWK ================="
+debugstart "JWK"
 debug "$jwk"
-debug "======================================"
+debugend
 debug
 
 cert=$(jq -r ".keys[] | select(.kid==\"$kid\" and .alg==\"$alg\") | .x5c[0]" <<< "$jwk")
@@ -250,16 +285,16 @@ fi
 
 cert_pem=$(openssl base64 -d -A <<< "$cert" | openssl x509 -inform der)
 
-debug "============== Cert =================="
+debugstart "Cert"
 debug "$cert_pem"
-debug "======================================"
+debugend
 debug
 
 pubkey=$(openssl x509 -noout -pubkey <<< "$cert_pem")
 
-debug "========== Public Key ================"
+debugstart "Public key"
 debug "$pubkey"
-debug "======================================"
+debugend
 debug
 
 pubkey_tmpfile=$(mktemp)
@@ -284,14 +319,14 @@ fi
 
 signed_data=$(awk -F. '{printf("%s.%s",$1,$2)}' <<< "$JWT")
 
-debug "========== Signed Data ================"
+debugstart "Signed Data"
 debug "$signed_data"
-debug "======================================="
+debugend 
 debug
 
-debug "========== Encoded signature =========="
+debugstart "Encoded signature"
 debug "$jwt_signature"
-debug "======================================="
+debugend
 debug
 
 debug "Validating signature"
