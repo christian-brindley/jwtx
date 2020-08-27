@@ -145,7 +145,7 @@ case $key in
 esac
 done
 
-# Marge options with properties file (file takes precedence)
+# Merge options with properties file (file takes precedence)
 
 if [ -n "$PROPERTIES_FILE" ]
 then
