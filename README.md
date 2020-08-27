@@ -26,7 +26,7 @@ jwtx can be used to examine an encoded JWT either by reading from a local file, 
   -v|--version         (print jwtx version)
   -h|--help            (print this usage information)
   
-## Operation
+## Operation
   
 ## Examples  
 
