@@ -1,0 +1,305 @@
+#!/bin/bash
+
+##############################################################################
+# DISCLAIMER                                                                 #
+#                                                                            #
+# The sample code described herein is provided on an "as is" basis, without  #
+# warranty of any kind, to the fullest extent permitted by law. ForgeRock    #
+# does not warrant or guarantee the individual success developers may have   #
+# in implementing the sample code on their development platforms or in       #
+# production configurations. ForgeRock does not warrant, guarantee or make   #
+# any representations regarding the use, results of use, accuracy,           #
+# timeliness or completeness of any data or information relating to the      #
+# sample code. ForgeRock disclaims all warranties, expressed or implied, and #
+# in particular, disclaims all warranties of merchantability, and            #
+# warranties related to the code, or any service or software related         #
+# thereto.                                                                   #
+#                                                                            #
+# ForgeRock shall not be liable for any direct, indirect or consequential    #
+# damages or costs of any type arising out of any action taken by you or     #
+# others related to the sample code.                                         #
+##############################################################################
+
+#
+# jwtx
+#
+# Script to examine a JSON Web Token
+#
+# Print decoded header and payload, and optionally validate signature
+#
+#
+VERSION=1.0
+#
+function usage () {
+cat  <<EOF
+Usage: jwtx -p|--properties filename (file with options)
+            -w|--well-known uri  (OIDC wellknown URI)
+            -j|--jwks-uri uri    (jwks_uri if --well-known not specified)
+            -s|--verify          (perform signature verification - requires --well-known or --jwk options)
+            -d|--debug           (debug output)
+            -f|--file filename   (file containing JWT - if not supplied, JWT taken from stdin)
+            -v|--version         (print jwtx version)
+            -h|--help            (print this usage information)
+EOF
+}
+#
+
+
+# debug message
+# 
+# Print debug info to stdout
+#
+
+function debug () {
+    if [ -n "$DEBUG" ]
+    then
+        echo $1
+    fi
+}
+
+
+
+# checkoptions
+#
+# Check startup options
+#
+
+function checkoptions () {
+    error=0
+
+    [ -n "$VERIFY" ] && [ -z "$WELL_KNOWN_URI" ] && [ -z "$JWKS_URI" ] && echo "--verify option requires either --well-known or --jwk option" && error=1
+
+    [ $error == 0 ]
+}
+
+# getpadding alg
+#
+# Get the padding algorithm for given signing alg
+
+function getpadding () {
+    prefix=$(cut -c1-2 <<< $1)
+    if [ "$prefix" == "PS" ]
+    then
+        echo pss
+    fi
+}
+
+# gethashalg alg
+#
+# Get the hashing algorithm for given signing alg
+
+function gethashalg () {
+    size=$(cut -c3-5 <<< $1)
+    echo sha$size
+}
+
+# Load up our command line options
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -v|--version)
+        echo $VERSION
+        exit 0
+        ;;
+    -h|--help)
+        usage
+        exit 0
+        ;;
+    -f|--file)
+        JWT_FILE="$2"
+        shift # past argument
+        shift # past value
+        ;;
+    -p|--properties)
+        PROPERTIES_FILE="$2"
+        shift # past argument
+        shift # past value
+        ;;
+    -w|--well-known)
+        WELL_KNOWN_URI="$2"
+        shift # past argument
+        shift # past value
+        ;;
+    -j|--jwks-uri)
+        JWK="$2"
+        shift # past argument
+        shift # past value
+        ;;
+    -s|--sigverify)
+        VERIFY="true"
+        shift # past argument
+        ;;
+    -d|--DEBUG)
+        DEBUG="true"
+        shift # past argument
+        ;;
+       
+    *) 
+        echo Unrecognised option: \"$1\"
+        usage
+        exit 1
+        ;;
+esac
+done
+
+# Marge options with properties file (file takes precedence)
+
+if [ -n "$PROPERTIES_FILE" ]
+then
+    if [ ! -f "$PROPERTIES_FILE" ]
+    then
+        echo Error: properties file \"$PROPERTIES_FILE\" not found
+        exit 1
+    fi
+    . "$PROPERTIES_FILE"
+fi
+
+# Verify the options we end up with
+
+if ! checkoptions
+then
+    exit 1
+fi
+
+# Read JWT from file if supplied - otherwise read from stdin
+
+if [ -z "$JWT_FILE" ]
+then
+    read JWT
+else
+    if [ ! -f "$JWT_FILE" ]
+    then
+        echo Error: JWT file \"$JWT_FILE\" not found
+        exit 1
+    fi
+    JWT=$(cat $JWT_FILE)
+fi
+
+if [ -z "$JWT" ]
+then
+    echo Nothing to do
+    exit 1
+fi
+
+# Show decoded JWT
+
+jwt_header=$(awk -F. '{printf($1)}' <<< "$JWT"| sed 's/-/+/g; s/_/\//g; s/$/==/' | openssl base64 -d -A)
+jwt_payload=$(awk -F. '{printf($2)}' <<< "$JWT"| sed 's/-/+/g; s/_/\//g; s/$/==/' | openssl base64 -d -A)
+jwt_signature=$(awk -F. '{printf($3)}' <<< "$JWT")
+
+jq  <<< "$jwt_header"
+jq  <<< "$jwt_payload"
+
+# If no signature verification required, we're done
+
+if [ -z "$VERIFY" ]
+then
+    exit 0
+fi
+
+# Signature verification
+
+# Get KID and signing algorithm
+
+kid=$(jq -r .kid <<< $jwt_header)
+alg=$(jq -r .alg <<< $jwt_header)
+
+hashalg=$(gethashalg $alg)
+padding=$(getpadding $alg)
+
+# if we have no JWK URI, then get it from the well known endpoint
+
+if [ -z "$JWKS_URI" ]
+then
+    debug
+    debug "Discovering jwks_uri from $WELL_KNOWN_URI"
+    debug
+    JWKS_URI=$(curl -s $WELL_KNOWN_URI | jq -r .jwks_uri)
+fi
+
+if [ -z "$JWKS_URI" ]
+then
+    echo Failed to get jwks_uri from $WELL_KNOWN_URI 
+    exit 1
+fi
+
+# Now fetch the JWK via the jwks_uri
+
+debug "Fetching JWK from $JWKS_URI"
+debug
+
+jwk=$(curl -s $JWKS_URI)
+
+debug "================ JWK ================="
+debug "$jwk"
+debug "======================================"
+debug
+
+cert=$(jq -r ".keys[] | select(.kid==\"$kid\" and .alg==\"$alg\") | .x5c[0]" <<< "$jwk")
+
+if [ -z "$cert" ]
+then
+    echo Failed to get certificate for kid \"$kid\" and alg \"$alg\"
+    exit 1
+fi
+
+# Now pull the public key from the cert and store it in a tmp file for openssl
+
+cert_pem=$(openssl base64 -d -A <<< "$cert" | openssl x509 -inform der)
+
+debug "============== Cert =================="
+debug "$cert_pem"
+debug "======================================"
+debug
+
+pubkey=$(openssl x509 -noout -pubkey <<< "$cert_pem")
+
+debug "========== Public Key ================"
+debug "$pubkey"
+debug "======================================"
+debug
+
+pubkey_tmpfile=$(mktemp)
+
+echo "$pubkey" > $pubkey_tmpfile
+
+# Next, create a binary signature file for the verification
+
+sig_tmpfile=$(mktemp)
+
+sed 's/-/+/g; s/_/\//g; s/$/==/' <<< "$jwt_signature" | openssl base64 -d -A > $sig_tmpfile
+
+# Run openssl to verify signature
+
+
+
+if [ -n "$padding" ]
+then
+    sigopt="-sigopt rsa_padding_mode:pss"
+fi
+
+
+signed_data=$(awk -F. '{printf("%s.%s",$1,$2)}' <<< "$JWT")
+
+debug "========== Signed Data ================"
+debug "$signed_data"
+debug "======================================="
+debug
+
+debug "========== Encoded signature =========="
+debug "$jwt_signature"
+debug "======================================="
+debug
+
+debug "Validating signature"
+debug
+
+echo -n "$signed_data" | openssl dgst $sigopt -verify $pubkey_tmpfile -$hashalg -signature $sig_tmpfile 
+
+# Clean up tmp files
+
+rm -f $sig_tmpfile $pubkey_tmpfile
+
