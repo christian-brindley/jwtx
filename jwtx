@@ -35,7 +35,7 @@ cat  <<EOF
 Usage: jwtx -p|--properties filename (file with options)
             -w|--well-known uri  (OIDC wellknown URI)
             -j|--jwks-uri uri    (jwks_uri if --well-known not specified)
-            -s|--verify          (perform signature verification - requires --well-known or --jwk options)
+            -s|--sigverif        (perform signature verification - requires --well-known or --jwk options)
             -d|--debug           (debug output)
             -f|--file filename   (file containing JWT - if not supplied, JWT taken from stdin)
             -v|--version         (print jwtx version)
