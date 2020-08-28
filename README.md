@@ -15,7 +15,7 @@ The script is a bash shell script, with the following dependencies
 
 ## Limitations
 
-Currently jwtx only supports public key based algorithms - i.e. ES*, RS* and PS*. HMAC based signatures are not supported.
+Currently jwtx only supports public key based algorithms - i.e. ES*, RS* and PS*. The issuer JWK has to contain an x5c parameter with an X509 certificate. HMAC based signatures are not supported.
 
 There is also limited error handling.
 
