@@ -75,29 +75,30 @@ echo 'eyJ0eXAiOiJKV1QiLCJraWQiOiJFRjcxaVNhb3NiQzVDNHRDNlN5cTFHbTY0N00iLCJhbGciOi
 ```
 
 
-2. Decode a token and verify the signature. Use OpenID Connect Discovery to find the public key
+2. Decode a token and verify the signature. Use OpenID Connect Discovery to find the public key (pointing to sample well-known doc in this repo)
 
 ```
-./jwtx -f jwt.txt -s -w https://am.authdemo.org/oauth2/realms/root/realms/test/.well-known/openid-configuration
+./jwtx -f samples/jwt/jwt.ps256 -s -w https://raw.githubusercontent.com/christian-brindley/jwtx/master/samples/well-known/openid-configuration.json
 {
   "typ": "JWT",
   "kid": "EF71iSaosbC5C4tC6Syq1Gm647M",
   "alg": "PS256"
 }
 {
-  "at_hash": "lEjlYjYX-a1zv9uVKl89VQ",
+  "at_hash": "kTF301ITWJ_Y_qyHkhCZlA",
   "sub": "jane.doe",
-  "auditTrackingId": "cb158eb8-8c8f-40b5-a40e-a54642925e2a-252",
+  "auditTrackingId": "653af365-7ea7-4337-8ff7-01f8b6ad2908-2066",
   "iss": "https://am.authdemo.org/oauth2/realms/root/realms/test",
   "tokenName": "id_token",
   "aud": "testclient",
   "azp": "testclient",
-  "auth_time": 1598288890,
+  "auth_time": 1598631333,
   "realm": "/test",
-  "exp": 1598289493,
+  "exp": 1598631933,
   "tokenType": "JWTToken",
-  "iat": 1598288893
+  "iat": 1598631333
 }
 Verified OK
+
 ```
 
