@@ -128,6 +128,16 @@ function gethashalg () {
     echo sha$size
 }
 
+# derify
+# 
+# Add DER headers to raw 64 byte signature (required for ES* sigs and openssl
+# 
+
+function derify () {
+   hex=$(xxd -p -c 256 $1)
+   echo 3046022100${hex:0:64}022100${hex:64:64} | xxd -r -p > $1
+}
+
 # Load up our command line options
 
 while [[ $# -gt 0 ]]
@@ -330,6 +340,11 @@ sig_tmpfile=$(mktemp)
 
 sed 's/-/+/g; s/_/\//g; s/$/==/' <<< "$jwt_signature" | openssl base64 -d -A > $sig_tmpfile
 
+if [ "${alg:0:2}" == "ES" ]
+then
+    derify $sig_tmpfile
+fi
+
 # Run openssl to verify signature
 
 
@@ -360,3 +375,4 @@ echo -n "$signed_data" | openssl dgst $sigopt -verify $pubkey_tmpfile -$hashalg 
 # Clean up tmp files
 
 rm -f $sig_tmpfile $pubkey_tmpfile
+
