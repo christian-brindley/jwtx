@@ -13,9 +13,9 @@ The script is a bash shell script, with the following dependencies
 - awk
 - sed
 
-## Limitations
+## Limitations
 
-Currently jwtx only supports public key based algorithms - i.e. ES*, RS* and PS*.
+Currently jwtx only supports public key based algorithms - i.e. ES*, RS* and PS*. HMAC based signatures are not supported.
 
 There is also limited error handling.
 
