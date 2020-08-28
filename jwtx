@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 ##############################################################################
 # DISCLAIMER                                                                 #
@@ -72,6 +72,21 @@ function debugend () {
 function debugjson () {
     msg=$(jq . <<< "$1")
     debug "$msg"
+}
+
+# supportedalg
+#
+# check supported signature algorithm for verification
+# 
+
+function supportedalg () {
+    supported=0
+    for prefix in RS PS ES
+    do
+        [ ${1:0:2} == "$prefix" ] && supported=1
+    done
+    [ $supported == 1 ]
+            
 }
 
 # checkoptions
@@ -260,6 +275,12 @@ fi
 kid=$(jq -r .kid <<< $jwt_header)
 alg=$(jq -r .alg <<< $jwt_header)
 
+if ! supportedalg $alg
+then
+    echo "Unsupported signing algorithm: $alg"
+    exit 1
+fi
+
 hashalg=$(gethashalg $alg)
 padding=$(getpadding $alg)
 
@@ -375,4 +396,3 @@ echo -n "$signed_data" | openssl dgst $sigopt -verify $pubkey_tmpfile -$hashalg 
 # Clean up tmp files
 
 rm -f $sig_tmpfile $pubkey_tmpfile
-
