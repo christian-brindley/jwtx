@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 ##############################################################################
 # DISCLAIMER                                                                 #
@@ -28,7 +28,7 @@
 # Print decoded header and payload, and optionally validate signature
 #
 #
-VERSION=1.0
+VERSION=1.1
 #
 function usage () {
 cat  <<EOF
@@ -143,14 +143,53 @@ function gethashalg () {
     echo sha$size
 }
 
-# derify
+# derify file alg
 # 
-# Add DER headers to raw 64 byte signature (required for ES* sigs and openssl
+# Add DER headers to raw EC signature (required for ES* sigs and openssl
 # 
 
 function derify () {
-   hex=$(xxd -p -c 256 $1)
-   echo 3046022100${hex:0:64}022100${hex:64:64} | xxd -r -p > $1
+
+   
+   infile=$1
+
+   # get the signature file size. we're going to split this into 2 integers
+
+   hex=$(xxd -p -c 256 $infile)
+   intsize=$(( ${#hex} / 2 )) 
+
+   debug "DER encoding signature"
+   debug "Old value $hex"
+
+   # split into two halves (note that hex is twice the binary filesize)
+
+   int_left=$( padifneg ${hex:0:$intsize} )
+   int_right=$( padifneg ${hex:$intsize:$intsize} )
+
+   len_left=$( printf '%x' $(( ${#int_left} / 2 )) )
+   len_right=$( printf '%x' $(( ${#int_right} / 2 )) )
+
+   # join together as integers (DER header 0x02)
+   ints="02${len_left}${int_left}02${len_right}${int_right}"
+   len=$( printf '%x'  $(( ${#ints} / 2 )) )
+
+   # flag as sequence (DER header 0x30)
+   newhex="30${len}${ints}"
+
+   debug "New value $newhex"
+   echo $newhex | xxd -r -p > $1
+}
+
+function padifneg () {
+   input=$1
+
+   neg=$(( 0x${input:0:2} & 0x80 )) 
+   if [ $neg != 0 ]
+   then
+      input=00$input
+   fi
+
+   echo $input 
 }
 
 # Load up our command line options
@@ -338,6 +377,7 @@ debugend
 debug
 
 cert_details=$(openssl x509 -noout -text <<< "$cert_pem")
+cert_subject=$(openssl x509 -noout -subject <<< "$cert_pem" | cut -f2)
 
 debugstart "Cert details"
 debug "$cert_details"
@@ -363,7 +403,7 @@ sed 's/-/+/g; s/_/\//g; s/$/==/' <<< "$jwt_signature" | openssl base64 -d -A > $
 
 if [ "${alg:0:2}" == "ES" ]
 then
-    derify $sig_tmpfile
+    derify "$sig_tmpfile"
 fi
 
 # Run openssl to verify signature
@@ -393,6 +433,7 @@ debug
 
 echo -n "$signed_data" | openssl dgst $sigopt -verify $pubkey_tmpfile -$hashalg -signature $sig_tmpfile 
 
+
 # Clean up tmp files
 
-rm -f $sig_tmpfile $pubkey_tmpfile
+# rm -f $sig_tmpfile $pubkey_tmpfile
