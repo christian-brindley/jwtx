@@ -53,7 +53,10 @@ EOF
 function debug () {
     if [ -n "$DEBUG" ]
     then
+        IFSBACKUP=$IFS
+        IFS=""
         echo $1
+        IFS=$IFSBACKUP
     fi
 }
 
@@ -64,6 +67,11 @@ function debugstart () {
 
 function debugend () {
     debug "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+}
+
+function debugjson () {
+    msg=$(jq . <<< "$1")
+    debug "$msg"
 }
 
 # checkoptions
@@ -78,7 +86,7 @@ function checkoptions () {
     [ -n "$VERIFY" ] && [ -z "$WELL_KNOWN_URI" ] && [ -z "$JWKS_URI" ] && echo "--verify option requires either --well-known or --jwk option" && error=1
 
     # Check we don't have both well-known uri and jwks-uri
-    [ -n "$WELL_KNOWN_URI" ] && [ -n $JWKS_URI ] && echo "Specify either --well-known or --jwks-uri option" && error=1
+    [ -n "$WELL_KNOWN_URI" ] && [ -n "$JWKS_URI" ] && echo "Specify either --well-known or --jwks-uri option" && error=1
 
     [ $error == 0 ]
 }
@@ -252,6 +260,14 @@ then
     debug
     debug "Discovering jwks_uri from $WELL_KNOWN_URI"
     debug
+   
+    wellknown=$(curl -s $WELL_KNOWN_URI )
+
+    debugstart "openid-configuration"
+    debugjson "$wellknown"
+    debugend
+    debug
+
     JWKS_URI=$(curl -s $WELL_KNOWN_URI | jq -r .jwks_uri)
 fi
 
@@ -269,7 +285,7 @@ debug
 jwk=$(curl -s $JWKS_URI)
 
 debugstart "JWK"
-debug "$jwk"
+debugjson "$jwk"
 debugend
 debug
 
@@ -287,6 +303,13 @@ cert_pem=$(openssl base64 -d -A <<< "$cert" | openssl x509 -inform der)
 
 debugstart "Cert"
 debug "$cert_pem"
+debugend
+debug
+
+cert_details=$(openssl x509 -noout -text <<< "$cert_pem")
+
+debugstart "Cert details"
+debug "$cert_details"
 debugend
 debug
 
@@ -337,4 +360,3 @@ echo -n "$signed_data" | openssl dgst $sigopt -verify $pubkey_tmpfile -$hashalg 
 # Clean up tmp files
 
 rm -f $sig_tmpfile $pubkey_tmpfile
-
