@@ -16,7 +16,7 @@ The script is a bash shell script, with the following dependencies
 ## Usage
 
 jwtx can be used to examine an encoded JWT either by reading from a local file, or by piping through stdin. Commmand line options are as follows
-
+```
   -p|--properties filename (file with options)
   -w|--well-known uri  (OIDC wellknown URI)
   -j|--jwks-uri uri    (jwks_uri if --well-known not specified)
@@ -25,7 +25,8 @@ jwtx can be used to examine an encoded JWT either by reading from a local file, 
   -f|--file filename   (file containing JWT - if not supplied, JWT taken from stdin)
   -v|--version         (print jwtx version)
   -h|--help            (print this usage information)
-  
+```
+
 ## Operation
 
 The JWT is passed to jwkx either via stdin, or via the -f option.
