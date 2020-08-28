@@ -13,6 +13,12 @@ The script is a bash shell script, with the following dependencies
 - awk
 - sed
 
+## Limitations
+
+Currently jwtx only supports public key based algorithms - i.e. ES*, RS* and PS*.
+
+There is also limited error handling.
+
 ## Usage
 
 jwtx can be used to examine an encoded JWT either by reading from a local file, or by piping through stdin. 
