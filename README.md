@@ -6,7 +6,7 @@ Decodes JWT header and payload, and optionally validates the JWS signature.
 
 ## Requirements
 
-The script is a bash shell script, with the following dependencies
+The tool is a bash shell script, with the following dependencies
 
 - jq (https://stedolan.github.io/jq)
 - openssl (https://www.openssl.org)
@@ -78,7 +78,8 @@ echo 'eyJ0eXAiOiJKV1QiLCJraWQiOiJFRjcxaVNhb3NiQzVDNHRDNlN5cTFHbTY0N00iLCJhbGciOi
 2. Decode a token and verify the signature. Use OpenID Connect Discovery to find the public key (pointing to sample well-known doc in this repo)
 
 ```
-./jwtx -f samples/jwt/jwt.ps256 -s -w https://raw.githubusercontent.com/christian-brindley/jwtx/master/samples/well-known/openid-configuration.json
+./jwtx -f samples/jwt/jwt.ps256 \
+  -s -w https://raw.githubusercontent.com/christian-brindley/jwtx/master/samples/well-known/openid-configuration.json
 {
   "typ": "JWT",
   "kid": "EF71iSaosbC5C4tC6Syq1Gm647M",
