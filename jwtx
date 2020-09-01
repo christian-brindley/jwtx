@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 ##############################################################################
 # DISCLAIMER                                                                 #
@@ -28,7 +28,7 @@
 # Print decoded header and payload, and optionally validate signature
 #
 #
-VERSION=1.1
+VERSION=1.2
 #
 function usage () {
 cat  <<EOF
@@ -166,15 +166,62 @@ function derify () {
    int_left=$( padifneg ${hex:0:$intsize} )
    int_right=$( padifneg ${hex:$intsize:$intsize} )
 
-   len_left=$( printf '%x' $(( ${#int_left} / 2 )) )
-   len_right=$( printf '%x' $(( ${#int_right} / 2 )) )
+   len_left=$(derlen $int_left)
+   len_right=$(derlen $int_right)
 
    # join together as integers (DER header 0x02)
    ints="02${len_left}${int_left}02${len_right}${int_right}"
-   len=$( printf '%x'  $(( ${#ints} / 2 )) )
+   len=$( derlen $ints )
 
    # flag as sequence (DER header 0x30)
    newhex="30${len}${ints}"
+
+   debug "New value $newhex"
+   echo $newhex | xxd -r -p > $1
+}
+
+function derlen () {
+   len=$(( ${#1} / 2 )) 
+   if [ $len -lt 128 ]
+   then
+      header=$( printf '%.02x' $len )
+   elif [ $len -lt 256 ]
+   then
+      header=81$( printf '%.02x' $len )
+   else
+      header=82$( printf '%.04x' $len )
+   fi
+
+   echo $header
+}
+
+function _derify () {
+
+   
+   infile=$1
+
+   # get the signature file size. we're going to split this into 2 integers
+
+   hex=$(xxd -p -c 512 $infile)
+   intsize=$(( ${#hex} / 2 )) 
+
+   debug "DER encoding signature"
+   debug "Old value $hex"
+
+   # split into two halves (note that hex is twice the binary filesize)
+
+   int_left=$( padifneg ${hex:0:$intsize} )
+   int_right=$( padifneg ${hex:$intsize:$intsize} )
+
+   len_left=$( printf '%.04x' $(( ${#int_left} / 2 )) )
+   len_right=$( printf '%.04x' $(( ${#int_right} / 2 )) )
+
+   # join together as integers (DER header 0x02)
+   ints="0282${len_left}${int_left}0282${len_right}${int_right}"
+   len=$( printf '%.04x'  $(( ${#ints} / 2 )) )
+
+   # flag as sequence (DER header 0x30)
+   newhex="3082${len}${ints}"
 
    debug "New value $newhex"
    echo $newhex | xxd -r -p > $1
@@ -436,4 +483,4 @@ echo -n "$signed_data" | openssl dgst $sigopt -verify $pubkey_tmpfile -$hashalg 
 
 # Clean up tmp files
 
-# rm -f $sig_tmpfile $pubkey_tmpfile
+rm -f $sig_tmpfile $pubkey_tmpfile
