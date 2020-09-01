@@ -195,38 +195,6 @@ function derlen () {
    echo $header
 }
 
-function _derify () {
-
-   
-   infile=$1
-
-   # get the signature file size. we're going to split this into 2 integers
-
-   hex=$(xxd -p -c 512 $infile)
-   intsize=$(( ${#hex} / 2 )) 
-
-   debug "DER encoding signature"
-   debug "Old value $hex"
-
-   # split into two halves (note that hex is twice the binary filesize)
-
-   int_left=$( padifneg ${hex:0:$intsize} )
-   int_right=$( padifneg ${hex:$intsize:$intsize} )
-
-   len_left=$( printf '%.04x' $(( ${#int_left} / 2 )) )
-   len_right=$( printf '%.04x' $(( ${#int_right} / 2 )) )
-
-   # join together as integers (DER header 0x02)
-   ints="0282${len_left}${int_left}0282${len_right}${int_right}"
-   len=$( printf '%.04x'  $(( ${#ints} / 2 )) )
-
-   # flag as sequence (DER header 0x30)
-   newhex="3082${len}${ints}"
-
-   debug "New value $newhex"
-   echo $newhex | xxd -r -p > $1
-}
-
 function padifneg () {
    input=$1
 
